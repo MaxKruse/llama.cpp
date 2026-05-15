@@ -103,12 +103,16 @@
 
 							<Tooltip.Root>
 								<Tooltip.Trigger>
-									<Checkbox
-										{checked}
-										{indeterminate}
-										onCheckedChange={() => toolsStore.toggleGroup(group)}
-										class="mr-2 h-4 w-4 shrink-0"
-									/>
+									{#snippet child({ props })}
+										<span {...props}>
+											<Checkbox
+												{checked}
+												{indeterminate}
+												onCheckedChange={() => toolsStore.toggleGroup(group)}
+												class="mr-2 h-4 w-4 shrink-0 cursor-pointer"
+											/>
+										</span>
+									{/snippet}
 								</Tooltip.Trigger>
 
 								<Tooltip.Content side="right">
@@ -130,7 +134,6 @@
 									>
 										<Checkbox
 											checked={toolsStore.isToolEnabled(tool.function.name)}
-											onCheckedChange={() => toolsStore.toggleTool(tool.function.name)}
 											class="h-4 w-4 shrink-0"
 										/>
 
