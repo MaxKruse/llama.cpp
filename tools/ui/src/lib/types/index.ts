@@ -162,3 +162,11 @@ export type {
 
 // Tools types
 export type { ToolEntry, ToolGroup } from './tools';
+
+// Presets types
+export type {
+	InferenceParams,
+	InferencePreset,
+	PresetsStorage,
+	InferenceParamKey
+} from './presets';
