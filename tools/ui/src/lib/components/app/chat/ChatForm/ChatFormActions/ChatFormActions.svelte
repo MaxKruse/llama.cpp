@@ -7,6 +7,7 @@
 		ChatFormActionRecord,
 		ChatFormActionSubmit
 	} from '$lib/components/app';
+	import PresetsPicker from '$lib/components/app/presets/PresetsPicker.svelte';
 	import { FileTypeCategory } from '$lib/enums';
 	import { mcpStore } from '$lib/stores/mcp.svelte';
 	import { config } from '$lib/stores/settings.svelte';
@@ -122,6 +123,9 @@
 			useGlobalSelection
 		/>
 	{/if}
+
+	<!-- Preset Picker -->
+	<PresetsPicker {disabled} />
 
 	{#if isLoading && !canSubmit}
 		<Button

@@ -16,6 +16,7 @@ import { DatabaseService } from '$lib/services/database.service';
 import { ChatService } from '$lib/services/chat.service';
 import { conversationsStore } from '$lib/stores/conversations.svelte';
 import { config } from '$lib/stores/settings.svelte';
+import { presetsStore } from '$lib/stores/presets.svelte';
 import { agenticStore } from '$lib/stores/agentic.svelte';
 import { mcpStore } from '$lib/stores/mcp.svelte';
 import { contextSize, isRouterMode } from '$lib/stores/server.svelte';
@@ -555,7 +556,8 @@ class ChatStore {
 			if (isNewConversation) {
 				const rootId = await DatabaseService.createRootMessage(currentConv.id);
 				const currentConfig = config();
-				const systemPrompt = currentConfig.systemMessage?.toString().trim();
+				// Use preset system message if active, otherwise global config
+				const systemPrompt = presetsStore.getSystemMessage(currentConfig.systemMessage).trim();
 				if (systemPrompt) {
 					const systemMessage = await DatabaseService.createSystemMessage(
 						currentConv.id,
@@ -1750,12 +1752,15 @@ class ChatStore {
 			if (modelName) apiOptions.model = modelName;
 		}
 
-		if (currentConfig.systemMessage) apiOptions.systemMessage = currentConfig.systemMessage;
+		// System message: preset override > global config
+		const effectiveSystemMessage = presetsStore.getSystemMessage(currentConfig.systemMessage);
+		if (effectiveSystemMessage) apiOptions.systemMessage = effectiveSystemMessage;
 
 		if (currentConfig.disableReasoningParsing) apiOptions.disableReasoningParsing = true;
 
 		if (currentConfig.excludeReasoningFromContext) apiOptions.excludeReasoningFromContext = true;
 
+		// Base parameters from global config
 		if (hasValue(currentConfig.temperature))
 			apiOptions.temperature = Number(currentConfig.temperature);
 
@@ -1810,6 +1815,14 @@ class ChatStore {
 		apiOptions.backend_sampling = currentConfig.backend_sampling;
 
 		if (currentConfig.custom) apiOptions.custom = currentConfig.custom;
+
+		// Layer preset overrides on top of base config
+		const presetOverrides = presetsStore.getMergedApiOptions();
+		for (const [key, value] of Object.entries(presetOverrides)) {
+			if (value !== undefined && value !== '' && value !== null) {
+				apiOptions[key] = value;
+			}
+		}
 
 		return apiOptions;
 	}
