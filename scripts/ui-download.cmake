@@ -74,7 +74,7 @@ set(PROVISION_SUCCESS FALSE)
 if(NOT PROVISION_SUCCESS AND NOT "${NPM_DIR}" STREQUAL "")
     if(EXISTS "${NPM_DIR}/package.json")
         # Check if npm is available before attempting npm build
-        find_program(NPM_EXECUTABLE npm)
+        find_program(NPM_EXECUTABLE NAMES npm.cmd npm)
         if(NPM_EXECUTABLE)
             message(STATUS "UI: building from source in ${NPM_DIR}")
 
