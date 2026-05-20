@@ -51,7 +51,7 @@
 
 <DropdownMenu.Root>
 	<DropdownMenu.Trigger
-		class="inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 cursor-pointer {className}"
+		class="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full px-3 text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground {className}"
 		{disabled}
 		title={activeLabel}
 	>
@@ -64,7 +64,7 @@
 		side="top"
 		align="start"
 		sideOffset={8}
-		class="w-64 max-h-80 overflow-y-auto"
+		class="max-h-80 w-64 overflow-y-auto"
 	>
 		<DropdownMenu.Label class="px-3 py-1.5 text-xs font-medium text-muted-foreground">
 			Active Preset
@@ -73,7 +73,7 @@
 		<DropdownMenu.Separator />
 
 		<DropdownMenu.Item class="cursor-pointer" onclick={() => handleSelect(null)}>
-			<span class="italic text-muted-foreground">None (global settings)</span>
+			<span class="text-muted-foreground italic">None (global settings)</span>
 		</DropdownMenu.Item>
 
 		{#if currentPresets.length > 0}
