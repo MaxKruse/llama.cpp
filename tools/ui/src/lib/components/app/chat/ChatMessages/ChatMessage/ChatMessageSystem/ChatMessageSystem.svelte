@@ -1,12 +1,14 @@
 <script lang="ts">
-	import { Check, X } from '@lucide/svelte';
+	import { Check, X, WandSparkles } from '@lucide/svelte';
 	import { ChatMessageActionIcons, MarkdownContent } from '$lib/components/app';
 	import { Button } from '$lib/components/ui/button';
 	import { Card } from '$lib/components/ui/card';
+	import { Badge } from '$lib/components/ui/badge';
 	import { INPUT_CLASSES } from '$lib/constants';
 	import { getMessageEditContext } from '$lib/contexts';
 	import { KeyboardKey, MessageRole } from '$lib/enums';
 	import { config } from '$lib/stores/settings.svelte';
+	import { presetsStore } from '$lib/stores/presets.svelte';
 	import { isIMEComposing } from '$lib/utils';
 
 	interface Props {
@@ -67,6 +69,13 @@
 	const currentConfig = config();
 
 	let showExpandButton = $derived(contentHeight > MAX_HEIGHT);
+
+	// Get preset name if this system message was created from a preset
+	let presetName = $derived.by(() => {
+		if (!message.presetId) return null;
+		const preset = presetsStore.getPreset(message.presetId);
+		return preset?.name || null;
+	});
 
 	$effect(() => {
 		if (!messageElement || !message.content.trim()) return;
@@ -133,8 +142,17 @@
 			</div>
 		</div>
 	{:else}
-		{#if message.content.trim()}
+	{#if message.content.trim()}
 			<div class="relative max-w-[80%]">
+				<!-- Preset Badge -->
+				{#if presetName}
+					<div class="mb-1.5 flex items-center gap-1">
+						<Badge variant="secondary" class="h-5 gap-1 px-1.5 text-[10px]">
+							<WandSparkles class="h-2.5 w-2.5" />
+							{presetName}
+						</Badge>
+					</div>
+				{/if}
 				<button
 					class="group/expand w-full text-left {!isExpanded && showExpandButton
 						? 'cursor-pointer'

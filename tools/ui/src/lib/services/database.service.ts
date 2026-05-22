@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
 import { findDescendantMessages, uuid, filterByLeafNodeId } from '$lib/utils';
-import { IDXDB_TABLES, IDXDB_STORES, STORAGE_APP_NAME } from '$lib/constants';
+import { IDXDB_TABLES, IDXDB_STORES, IDXDB_STORE_SCHEMAS, STORAGE_APP_NAME } from '$lib/constants';
 import { MessageRole } from '$lib/enums';
 import type { McpServerOverride } from '$lib/types/database';
 
@@ -12,6 +12,11 @@ class LlamaUiDatabase extends Dexie {
 		super(STORAGE_APP_NAME);
 
 		this.version(1).stores(IDXDB_STORES);
+		// Add presetId fields for tracking which preset was used per conversation/message
+		this.version(2).stores({
+			[IDXDB_TABLES.conversations]: IDXDB_STORE_SCHEMAS.conversations,
+			[IDXDB_TABLES.messages]: IDXDB_STORE_SCHEMAS.messages
+		});
 	}
 }
 
@@ -30,14 +35,19 @@ export class DatabaseService {
 	 * Creates a new conversation.
 	 *
 	 * @param name - Name of the conversation
+	 * @param presetId - Optional preset ID to associate with this conversation
 	 * @returns The created conversation
 	 */
-	static async createConversation(name: string): Promise<DatabaseConversation> {
+	static async createConversation(
+		name: string,
+		presetId?: string | null
+	): Promise<DatabaseConversation> {
 		const conversation: DatabaseConversation = {
 			id: uuid(),
 			name,
 			lastModified: Date.now(),
-			currNode: ''
+			currNode: '',
+			presetId: presetId ?? null
 		};
 
 		await db[IDXDB_TABLES.conversations].add(conversation);
@@ -135,13 +145,15 @@ export class DatabaseService {
 	 * @param convId - Conversation ID
 	 * @param systemPrompt - The system prompt content (must be non-empty)
 	 * @param parentId - Parent message ID (typically the root message)
+	 * @param presetId - Optional preset ID that generated this system message
 	 * @returns The created system message
 	 * @throws Error if systemPrompt is empty
 	 */
 	static async createSystemMessage(
 		convId: string,
 		systemPrompt: string,
-		parentId: string
+		parentId: string,
+		presetId?: string | null
 	): Promise<DatabaseMessage> {
 		const trimmedPrompt = systemPrompt.trim();
 		if (!trimmedPrompt) {
@@ -156,7 +168,8 @@ export class DatabaseService {
 			role: MessageRole.SYSTEM,
 			content: trimmedPrompt,
 			parent: parentId,
-			children: []
+			children: [],
+			presetId: presetId ?? null
 		};
 
 		await db[IDXDB_TABLES.messages].add(systemMessage);
