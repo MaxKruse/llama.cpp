@@ -1,9 +1,11 @@
 <script lang="ts">
 	/**
 	 * PresetsPicker - Dropdown for selecting an active inference preset.
+	 * Triggers conversation branching when a preset is selected.
 	 */
 
 	import { presetsStore, presets, activePreset } from '$lib/stores/presets.svelte';
+	import { chatStore } from '$lib/stores/chat.svelte';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { WandSparkles, ChevronDown, Plus, Settings2, Trash2, Copy } from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
@@ -17,19 +19,29 @@
 	let { disabled = false, class: className = '' }: Props = $props();
 
 	let managerOpen = $state(false);
+	let isApplying = $state(false);
 
 	let currentPresets = $derived(presets());
 	let currentActive = $derived(activePreset());
 
 	let activeLabel = $derived(currentActive?.name || 'No preset');
 
-	function handleSelect(id: string | null): void {
-		presetsStore.setActivePreset(id);
-		if (id) {
-			const p = presetsStore.getPreset(id);
-			toast.success(`Preset "${p?.name}" activated`);
-		} else {
-			toast.info('Preset cleared');
+	async function handleSelect(id: string | null): Promise<void> {
+		if (isApplying) return;
+		isApplying = true;
+		try {
+			await chatStore.applyPresetToConversation(id);
+			if (id) {
+				const p = presetsStore.getPreset(id);
+				toast.success(`Preset "${p?.name}" activated`);
+			} else {
+				toast.info('Preset cleared');
+			}
+		} catch (error) {
+			console.error('Failed to apply preset:', error);
+			toast.error('Failed to apply preset');
+		} finally {
+			isApplying = false;
 		}
 	}
 
@@ -72,7 +84,11 @@
 
 		<DropdownMenu.Separator />
 
-		<DropdownMenu.Item class="cursor-pointer" onclick={() => handleSelect(null)}>
+		<DropdownMenu.Item
+			class="cursor-pointer"
+			onclick={() => handleSelect(null)}
+			{disabled}
+		>
 			<span class="text-muted-foreground italic">None (global settings)</span>
 		</DropdownMenu.Item>
 
@@ -98,7 +114,11 @@
 					</DropdownMenu.SubTrigger>
 
 					<DropdownMenu.SubContent class="w-48">
-						<DropdownMenu.Item class="cursor-pointer" onclick={() => handleSelect(preset.id)}>
+						<DropdownMenu.Item
+							class="cursor-pointer"
+							onclick={() => handleSelect(preset.id)}
+							{disabled}
+						>
 							<WandSparkles class="mr-2 h-3.5 w-3.5" />
 							{#if currentActive?.id === preset.id}
 								Active

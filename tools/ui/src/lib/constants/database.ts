@@ -18,8 +18,8 @@ export const IDXDB_TABLES = {
 
 /** IndexedDB store schemas */
 export const IDXDB_STORE_SCHEMAS = {
-	conversations: 'id, lastModified, currNode, name',
-	messages: 'id, convId, type, role, timestamp, parent, children'
+	conversations: 'id, lastModified, currNode, name, presetId',
+	messages: 'id, convId, type, role, timestamp, parent, children, presetId'
 } as const;
 
 /** Combined Dexie stores definition — keys are table names, values are schemas */

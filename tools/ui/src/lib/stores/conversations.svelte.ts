@@ -24,6 +24,7 @@ import { toast } from 'svelte-sonner';
 import { DatabaseService } from '$lib/services/database.service';
 import { MigrationService } from '$lib/services/migration.service';
 import { config } from '$lib/stores/settings.svelte';
+import { presetsStore } from '$lib/stores/presets.svelte';
 import { filterByLeafNodeId, findLeafNode, generateConversationTitle } from '$lib/utils';
 import type { McpServerOverride } from '$lib/types/database';
 import { MessageRole, HtmlInputType, FileExtensionText } from '$lib/enums';
@@ -234,11 +235,12 @@ class ConversationsStore {
 	/**
 	 * Creates a new conversation and navigates to it
 	 * @param name - Optional name for the conversation
+	 * @param presetId - Optional preset ID to associate with this conversation
 	 * @returns The ID of the created conversation
 	 */
-	async createConversation(name?: string): Promise<string> {
+	async createConversation(name?: string, presetId?: string | null): Promise<string> {
 		const conversationName = name || `Chat ${new Date().toLocaleString()}`;
-		const conversation = await DatabaseService.createConversation(conversationName);
+		const conversation = await DatabaseService.createConversation(conversationName, presetId);
 
 		if (this.pendingMcpServerOverrides.length > 0) {
 			// Deep clone to plain objects (Svelte 5 $state uses Proxies which can't be cloned to IndexedDB)
@@ -278,6 +280,13 @@ class ConversationsStore {
 			this.pendingMcpServerOverrides = [];
 			this.activeConversation = conversation;
 
+			// Sync preset from conversation to presets store
+			if (conversation.presetId) {
+				presetsStore.setActivePreset(conversation.presetId);
+			} else {
+				presetsStore.setActivePreset(null);
+			}
+
 			if (conversation.currNode) {
 				const allMessages = await DatabaseService.getConversationMessages(convId);
 				const filteredMessages = filterByLeafNodeId(
@@ -304,6 +313,8 @@ class ConversationsStore {
 	clearActiveConversation(): void {
 		this.activeConversation = null;
 		this.activeMessages = [];
+		// Clear active preset when no conversation is active
+		presetsStore.setActivePreset(null);
 		// reload MCP defaults so new chats inherit persisted state
 		this.pendingMcpServerOverrides = ConversationsStore.loadMcpDefaults();
 	}

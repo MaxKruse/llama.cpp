@@ -542,8 +542,9 @@ class ChatStore {
 		const allExtras = resourceExtras.length > 0 ? [...(extras || []), ...resourceExtras] : extras;
 
 		let isNewConversation = false;
+		const activePresetId = presetsStore.activePresetId;
 		if (!activeConv) {
-			await conversationsStore.createConversation();
+			await conversationsStore.createConversation(undefined, activePresetId);
 			isNewConversation = true;
 		}
 		const currentConv = conversationsStore.activeConversation;
@@ -562,7 +563,8 @@ class ChatStore {
 					const systemMessage = await DatabaseService.createSystemMessage(
 						currentConv.id,
 						systemPrompt,
-						rootId
+						rootId,
+						activePresetId
 					);
 					conversationsStore.addMessageToActive(systemMessage);
 					parentIdForUserMessage = systemMessage.id;
@@ -609,6 +611,109 @@ class ChatStore {
 				message: error instanceof Error ? error.message : 'Unknown error',
 				contextInfo
 			});
+		}
+	}
+
+	/**
+	 * Apply a preset to the current conversation with branching logic.
+	 *
+	 * Flows:
+	 * - No chat open: Create new chat with preset as system prompt, no user messages
+	 * - Chat open, no preset used: Branch at system-prompt level, replace system prompt
+	 *   with preset's, keep first user message + empty Assistant for regenerate
+	 * - Chat open, preset used before: Branch same way as "no preset used"
+	 */
+	async applyPresetToConversation(presetId: string | null): Promise<void> {
+		presetsStore.setActivePreset(presetId);
+		const activeConv = conversationsStore.activeConversation;
+
+		// Flow C: No chat open → create new chat with preset
+		if (!activeConv) {
+			if (!presetId) return;
+			const preset = presetsStore.getPreset(presetId);
+			if (!preset || !preset.systemMessage) return;
+			await conversationsStore.createConversation(undefined, presetId);
+			const newConv = conversationsStore.activeConversation;
+			if (!newConv) return;
+			const rootId = await DatabaseService.createRootMessage(newConv.id);
+			const systemMessage = await DatabaseService.createSystemMessage(
+				newConv.id,
+				preset.systemMessage,
+				rootId,
+				presetId
+			);
+			conversationsStore.addMessageToActive(systemMessage);
+			await conversationsStore.updateCurrentNode(systemMessage.id);
+			conversationsStore.updateConversationTimestamp();
+			return;
+		}
+
+		// Flows A & B: Chat is open → branch conversation
+		try {
+			const allMessages = await conversationsStore.getConversationMessages(activeConv.id);
+			const rootMessage = allMessages.find((m) => m.type === 'root' && m.parent === null);
+			if (!rootMessage) return;
+
+			// Find existing system message (child of root)
+			const existingSystemMessage = allMessages.find(
+				(m) => m.role === MessageRole.SYSTEM && m.parent === rootMessage.id
+			);
+
+			// Find first user message
+			const firstUserMessage = allMessages.find(
+				(m) => m.role === MessageRole.USER
+			);
+
+			// Handle preset cleared (null)
+			if (!presetId) {
+				// If there was a system message from a preset, remove it
+				if (existingSystemMessage && existingSystemMessage.presetId) {
+					await this.removeSystemPromptPlaceholder(existingSystemMessage.id);
+				}
+				// Clear preset from conversation
+				await DatabaseService.updateConversation(activeConv.id, { presetId: null });
+				conversationsStore.updateConversationTimestamp();
+				return;
+			}
+
+			const preset = presetsStore.getPreset(presetId);
+			if (!preset) return;
+
+			// Check if this conversation already uses this exact preset
+			if (existingSystemMessage?.presetId === presetId) return;
+
+			// Branch: create new system message with preset
+			const systemMessage = await DatabaseService.createSystemMessage(
+				activeConv.id,
+				preset.systemMessage,
+				rootMessage.id,
+				presetId
+			);
+
+			// If there was a first user message, reparent it under the new system message
+			// and create an empty assistant message for regenerate
+			if (firstUserMessage) {
+				// Update first user message parent to new system message
+				await DatabaseService.updateMessage(firstUserMessage.id, {
+					parent: systemMessage.id
+				});
+				await DatabaseService.updateMessage(systemMessage.id, {
+					children: [firstUserMessage.id]
+				});
+
+				// Create empty assistant message for regenerate
+				const assistantMsg = await this.createAssistantMessage(firstUserMessage.id);
+				conversationsStore.addMessageToActive(assistantMsg);
+			}
+
+			// Update conversation to track the preset
+			await DatabaseService.updateConversation(activeConv.id, { presetId });
+
+			// Refresh the active messages to show the new branch
+			await conversationsStore.refreshActiveMessages();
+			conversationsStore.updateConversationTimestamp();
+		} catch (error) {
+			console.error('Failed to apply preset to conversation:', error);
 		}
 	}
 

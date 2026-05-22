@@ -13,6 +13,8 @@ export interface DatabaseConversation {
 	name: string;
 	mcpServerOverrides?: McpServerOverride[];
 	forkedFromConversationId?: string;
+	/** ID of the preset used for this conversation (for system prompt + params) */
+	presetId?: string | null;
 }
 
 export interface DatabaseMessageExtraAudioFile {
@@ -118,6 +120,8 @@ export interface DatabaseMessage {
 	extra?: DatabaseMessageExtra[];
 	timings?: ChatMessageTimings;
 	model?: string;
+	/** ID of the preset used when this message was created (system messages) */
+	presetId?: string | null;
 }
 
 export type ExportedConversation = {
